@@ -12,10 +12,10 @@ from block import Block
 from transaction import Transaction
 
 #constant for mining rewards
-blockchain = []
 MINING_REWARD = 10
 owner = 'Mits'
 participants = {'Mits'}
+blockchain = []
 
 def get_transaction_value():
     '''
@@ -107,47 +107,59 @@ def get_balances(participant):
     tx_sender.append(open_tx_sender)
     amount_sent = 0
     amount_sent = reduce(lambda tx_sum, tx_amt : tx_sum + sum(tx_amt) if len(tx_amt) > 0 else tx_sum + 0,tx_sender,0)
-    tx_receiver = [[ tx.amount for tx in block.transactions if tx.recipient == participant] for block in blockchain]
+    tx_receiver = [[ tx.amount for tx in block.transactions if tx.receiver == participant] for block in blockchain]
     amount_received = 0
     amount_received = reduce(lambda tx_sum, tx_amt : tx_sum + sum(tx_amt) if len(tx_amt) > 0 else tx_sum + 0, tx_receiver, 0)
     return amount_received - amount_sent
 
 
 def load_data():
+    global blockchain
+    global open_transactions
+    global genesis_block
     try:
         #with open('blockchain.p',mode='rb') as f:
         with open('blockchain.txt',mode='r') as f:
             #file_content = pickle.loads(f.read())
-            file_content = f.readline()
-            global blockchain
-            global open_transactions
-            global genesis_block
+            file_content = f.readlines()
+            
             blockchain = json.loads(file_content[0][:-1])
+            #print(blockchain)
             updated_blockchain = []
             converted_tx = []
+            updated_block = []
             for block in blockchain:
-                converted_tx = [Transaction(tx['sender'],tx['receiver'],tx['amount']) for tx in blockchain['transactions']]
+                print('\nnew block : {}'.format(block))
+                converted_tx = [Transaction(tx['sender'],tx['receiver'],tx['amount']) for tx in block['transactions']]
                 updated_block = Block(block['index'],block['previous_hash'], converted_tx ,block['proof'], block['timestamp'])
                 updated_blockchain.append(updated_block)
-            blockchain = updated_block
+            blockchain = updated_blockchain
             #handling open transactions
             open_transactions = json.loads(file_content[1])
             updated_transactions = []
+            converted_tx = []
             for tx in open_transactions:
-                converted_tx = [Transaction(tx['sender'],tx['recipient'],tx['amount']) for tx in open_transactions]
+                converted_tx = [Transaction(tx['sender'],tx['receiver'],tx['amount']) for tx in open_transactions]
                 updated_tx = Transaction(tx['sender'],tx['receiver'],tx['amount'])
                 updated_transactions.append(updated_tx)
             open_transactions = updated_transactions
-    except (IOError, ValueError, IndexError):
+    except (IOError):
     #genesis block to have the first index block to create a block-chain
         genesis_block = Block(0,'',[],100,0)
         blockchain = [genesis_block]
         open_transactions = []
+    #print('Processed Output')
+    #print('\nBlock : {}'.format(blockchain))
+    #print('\nOpenTransaction : {}'.format(open_transactions))
+
 
 def save_data():
     #with open('blockchain.p',mode='bw') as f:
     with open('blockchain.txt',mode='w') as f:
-        save_chain = [block.__dict__ for block in blockchain]
+        save_chain = [block.__dict__ for block in 
+            [Block(block_el.index, block_el.previous_hash,[tx.__dict__ for tx in block_el.transactions], block_el.proof, block_el.timestamp) 
+            for block_el in blockchain]
+            ]
         f.write(json.dumps(save_chain))
         f.write('\n')
         save_transaction = [tx.__dict__ for tx in open_transactions]
@@ -174,7 +186,7 @@ def get_user_choice():
         print('\n3. Display Chain')
         #print('\n4. Alter Blockchain')
         print('\n5. Validate Blockchain')
-        print('\n6. View Particiapnts')
+        #print('\n6. View Particiapnts')
         print('\n7. Verify Transactions')
         print('\nQ. Quit')
         ch = input('\nEnter Choice : ')    
@@ -209,8 +221,8 @@ while True:
         else:
             print('\nThe Blockchain has been compromised')
             break
-    elif user_input == '6':
-        print(participants)
+    # elif user_input == '6':
+    #     print(participants)
     elif user_input == '7':
         if verify_transactions():
             print('Valid Transactions')
