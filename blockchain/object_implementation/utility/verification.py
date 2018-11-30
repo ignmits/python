@@ -3,6 +3,7 @@
 '''
 
 from  utility.hash_util import hash_block, hash_string_256
+from wallet import Wallet
 
 class Verification:
     @staticmethod
@@ -23,9 +24,16 @@ class Verification:
         return True
 
     @staticmethod
-    def verify_transaction(transaction, get_balances):
-        sender_balance = get_balances()
-        return sender_balance >= transaction.amount
+    def verify_transaction(transaction, get_balances, check_funds=True):
+        if check_funds == True:
+            sender_balance = get_balances()
+            # print('Balance')
+            # print(sender_balance)
+            # print(transaction.amount)
+            return sender_balance >= transaction.amount and Wallet.verify_transaction(transaction)
+        else:
+            return Wallet.verify_transaction(transaction)
+
     @classmethod
     def verify_transactions(cls, open_transactions, get_balances):
-        return all([cls.verify_transaction(tx, get_balances) for tx in open_transactions])
+        return all([cls.verify_transaction(tx, get_balances, False) for tx in open_transactions])
