@@ -1,4 +1,4 @@
-from verification import Verification
+from utility.verification import Verification
 from transaction import Transaction
 from blockchain import Blockchain
 from uuid import uuid4
@@ -18,12 +18,13 @@ class Node():
         tx_amount = float(input('\nEnter the amount please : '))
         return tx_recipient, tx_amount
 
-    
+
     def display_blockchain(self):
         #if self.blockchain_exist():
         print('The Blockchain value is : ')
         for block in self.blockchain.chain:
             print(block)
+
 
     def get_user_choice(self):
         '''
@@ -38,10 +39,11 @@ class Node():
             print('\n5. Verify Transactions')
             print('\nQ. Quit')
             ch = input('\nEnter Choice : ')    
-            if ch not in ('1','2','3','4','q','Q','5','6','7'):
+            if ch not in ('1','2','3','4','q','Q','5'):
                 print('Invalid Choice. Try Again.')
             else:
                 return ch
+
 
     def listen_for_input(self):
         while True:
@@ -77,6 +79,6 @@ class Node():
                 print('\nThe Blockchain has been compromised')
                 break
 
-
-node = Node()
-node.listen_for_input()
+if __name__ == "__main__":
+    node = Node()
+    node.listen_for_input()
