@@ -104,6 +104,8 @@ class Blockchain:
         Arguments :
             participant : User name to access to access amount as a sender or a receiver        
         '''
+        if self.hosting_node == None:
+            return None
         participant = self.hosting_node
         tx_sender = [[tx.amount for tx in block.transactions if tx.sender == participant] for block in self.__chain]
         open_tx_sender = [tx.amount for tx in self.__open_transactions if tx.sender==participant]
