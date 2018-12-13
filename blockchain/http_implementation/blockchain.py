@@ -3,12 +3,12 @@ from collections import OrderedDict
 import json
 # to save in binary format
 import pickle
+#library to send request through http
+import requests
 
 #custom imports
 from utility.hash_util import hash_block
 from utility.verification import Verification
-
-#import classes
 from block import Block
 from transaction import Transaction
 from wallet import Wallet
@@ -16,35 +16,60 @@ from wallet import Wallet
 #constant for mining rewards
 MINING_REWARD = 10
 
+
 class Blockchain:
-    def __init__(self, hosting_node_id):
+    '''
+    Blockchain class for blockchain object
+    '''
+    def __init__(self, public_key, node_id):
         #initialize empty blockchain
+        # __ to make it private
         self.__chain = []
         #unhandled transactions
         self.__open_transactions = []
         genesis_block = Block(0,'',[],100,0)
         self.__chain = [genesis_block]
+        #key to identify the owner
+        self.public_key = public_key
+        #to manage peern nodes. __ for private
+        self.__peer_nodes = set()
+        self.node_id = node_id
         self.load_data()
-        self.hosting_node = hosting_node_id
 
     @property
     def chain(self):
+        '''
+        To set chain as the propert of Blockchain Class.
+        hence can be accessible directly like class object.
+        '''
         return self.__chain[:]
+
 
     @chain.setter
     def chain(self, val):
+        '''
+        Setter property to assign value to the object property directly
+        '''
         self.__chain = val
 
     def get_open_transaction(self):
+        '''
+        Return list of Open  Transactions.
+        '''
         return self.__open_transactions[:]
 
     def load_data(self):
         try:
-            #with open('blockchain.p',mode='rb') as f:
-            with open('blockchain.txt',mode='r') as f:
-                #file_content = pickle.loads(f.read())
+            # To open file for reading in binary mode
+            # with open('blockchain.p',mode='rb') as f:
+            with open('blockchain_{}.txt'.format(self.node_id),mode='r') as f:
+                # To read binary data
+                # file_content = pickle.loads(f.read())
+
+                # Read all lines of the file
                 file_content = f.readlines()
                 
+                # Read everything except the open chains
                 blockchain = json.loads(file_content[0][:-1])
                 #print(blockchain)
                 updated_blockchain = []
@@ -65,12 +90,15 @@ class Blockchain:
                     updated_tx = Transaction(tx['sender'], tx['receiver'], tx['amount'], tx['signature'])
                     updated_transactions.append(updated_tx)
                 self.__open_transactions = updated_transactions
+                #read peer nodes from the file
+                peer_node = json.loads(file_content[2])
+                self.__peer_nodes = set(peer_node)
         except (IOError, IndexError):
             pass
     
     def save_data(self):
         #with open('blockchain.p',mode='bw') as f:
-        with open('blockchain.txt',mode='w') as f:
+        with open('blockchain_{}.txt'.format(self.node_id),mode='w') as f:
             save_chain = [block.__dict__ for block in 
                 [Block(block_el.index, block_el.previous_hash,[tx.__dict__ for tx in block_el.transactions], block_el.proof, block_el.timestamp) 
                 for block_el in self.__chain]
@@ -79,6 +107,9 @@ class Blockchain:
             f.write('\n')
             save_transaction = [tx.__dict__ for tx in self.__open_transactions]
             f.write(json.dumps(save_transaction))
+            #add peer nodes
+            f.write('\n')
+            f.write(json.dumps(list(self.__peer_nodes)))
             #to save binary data
             # save_data = {
             #     'chain' : blockchain,
@@ -98,15 +129,20 @@ class Blockchain:
         return proof
 
 
-    def get_balances(self):
+    def get_balances(self, sender = None):
         '''
         Calculate balances for a user.
         Arguments :
             participant : User name to access to access amount as a sender or a receiver        
         '''
-        if self.hosting_node == None:
-            return None
-        participant = self.hosting_node
+        if sender == None:
+            if self.public_key == None:
+                return None
+            participant = self.public_key
+        else:
+            participant = sender
+            
+        participant = self.public_key
         tx_sender = [[tx.amount for tx in block.transactions if tx.sender == participant] for block in self.__chain]
         open_tx_sender = [tx.amount for tx in self.__open_transactions if tx.sender==participant]
         tx_sender.append(open_tx_sender)
@@ -117,14 +153,23 @@ class Blockchain:
         amount_received = reduce(lambda tx_sum, tx_amt : tx_sum + sum(tx_amt) if len(tx_amt) > 0 else tx_sum + 0, tx_receiver, 0)
         return amount_received - amount_sent
 
-    def add_transaction(self, recipient, sender, signature, amount):
-        if self.hosting_node == None:
+    def add_transaction(self, recipient, sender, signature, amount, is_receiving = False):
+        if self.public_key == None:
             return False
         transaction = Transaction(sender,recipient, amount, signature)
         if Verification.verify_transaction(transaction, self.get_balances):
             self.__open_transactions.append(transaction)
             #add into file
             self.save_data()
+            if not is_receiving:
+                for node in self.__peer_nodes:
+                    url = 'http://{}/broadcast-transaction'.format(node)
+                    try:
+                        response = requests.post(url, json={'sender':sender, 'recipient':recipient, 'amount':amount, 'signature':signature})
+                        if response.status_code == 400 or response.status_code == 500:
+                            print('Transaction declined')
+                    except requests.exceptions.ConnectionError:
+                        continue
             return True
         return False
 
@@ -141,12 +186,12 @@ class Blockchain:
             return self.__chain[-1]
 
     def mine_block(self):
-        if self.hosting_node == None:
+        if self.public_key == None:
             return None
         last_block = self.__chain[-1]
         hashed_block = hash_block(last_block)
         proof = self.proof_of_work()
-        reward_transaction = Transaction('MINING', self.hosting_node, MINING_REWARD, '')
+        reward_transaction = Transaction('MINING', self.public_key, MINING_REWARD, '')
         copied_transaction = self.__open_transactions[:]
         for tx in copied_transaction:
             if not Wallet.verify_transaction(tx):
@@ -157,3 +202,25 @@ class Blockchain:
         self.__open_transactions = []
         self.save_data()
         return block
+
+    def add_peer_node(self,node):
+        '''Add a new node to the peer node network
+
+            Arguments : 
+                node : The node URL which should be added
+        '''
+        self.__peer_nodes.add(node)
+        self.save_data()
+    
+    def remove_peer_node(self, node):
+        '''Remove a node from the peer node network
+
+            Arguments : 
+                node : The node URL which should be added
+        '''
+        #discard to avoid failure in case the node does not exist
+        self.__peer_nodes.discard(node)
+        self.save_data()
+
+    def get_peer_node(self):
+        return list(self.__peer_nodes)

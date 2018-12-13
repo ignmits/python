@@ -26,7 +26,7 @@ class Verification:
     @staticmethod
     def verify_transaction(transaction, get_balances, check_funds=True):
         if check_funds == True:
-            sender_balance = get_balances()
+            sender_balance = get_balances(transaction.sender)
             # print('Balance')
             # print(sender_balance)
             # print(transaction.amount)

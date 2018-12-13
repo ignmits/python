@@ -103,4 +103,4 @@ while(True):
     if ch == 'P':
         print(queue)
     if ch == 'Q':
-        break 
+        break
