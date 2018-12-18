@@ -104,7 +104,7 @@ class Blockchain:
                 for block_el in self.__chain]
                 ]
             f.write(json.dumps(save_chain))
-            f.write('\n')
+            f.write('\n')            
             save_transaction = [tx.__dict__ for tx in self.__open_transactions]
             f.write(json.dumps(save_transaction))
             #add peer nodes
@@ -120,6 +120,7 @@ class Blockchain:
 
 
     def proof_of_work(self):
+        # get the last block in the chain
         last_block = self.__chain[-1]
         last_hash = hash_block(last_block)
         proof = 0

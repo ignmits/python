@@ -76,6 +76,7 @@ class Blockchain:
                 for block_el in self.__chain]
                 ]
             f.write(json.dumps(save_chain))
+            # print('\ndata - {}\n'.format(save_chain))
             f.write('\n')
             save_transaction = [tx.__dict__ for tx in self.__open_transactions]
             f.write(json.dumps(save_transaction))
